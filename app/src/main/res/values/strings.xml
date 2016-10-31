@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Phone As Mic</string>
+    <string name="start">Start</string>
+    <string name="exit">Exit</string>
+    <string name="use_your_cellphone_as_a_microphone">Use your cellphone as a microphone</string>
+    <string name="finish">Stop</string>
+</resources>
