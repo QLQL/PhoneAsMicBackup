@@ -22,38 +22,66 @@
         android:textAlignment="center"
         android:textColor="#f408f8"
         android:textSize="20sp" />
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/textView"
+        android:layout_marginTop="10dp"
+        android:layout_marginLeft="50dp"
+        android:id="@+id/ipAddressAll">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/ip_address"
+            android:textSize="18sp"/>
+
+        <EditText
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/ipAddress"
+            android:inputType="number|numberDecimal"
+            android:digits="0123456789."
+            android:hint="@string/_255_255_255_255"
+            android:maxLength="15"
+            android:textColor="#ab0101ff"/>
+
+    </LinearLayout>
+
+
+
+
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/start"
         android:id="@+id/startButton"
-        android:layout_below="@+id/textView"
-        android:layout_alignParentStart="true"
-        android:layout_marginTop="38dp"
-        android:onClick="startRecording" />
+        android:onClick="startRecording"
+        android:layout_below="@+id/ipAddressAll"
+        android:layout_marginLeft="50dp"/>
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/finish"
         android:id="@+id/finishButton"
-        android:layout_below="@+id/startButton"
-        android:layout_alignParentStart="true"
-        android:layout_marginTop="23dp"
         android:onClick="finishRecording"
-        android:nestedScrollingEnabled="true" />
+        android:nestedScrollingEnabled="true"
+        android:layout_below="@+id/startButton"
+        android:layout_alignStart="@+id/startButton" />
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/exit"
         android:id="@+id/exitButton"
-        android:layout_marginTop="21dp"
         android:onClick="exitApp"
         android:nestedScrollingEnabled="true"
+        android:textColor="#fb0303"
         android:layout_below="@+id/finishButton"
-        android:layout_alignStart="@+id/finishButton"
-        android:textColor="#fb0303" />
+        android:layout_alignStart="@+id/finishButton" />
 
     <com.androidplot.xy.XYPlot
         android:layout_width="wrap_content"
@@ -61,5 +89,7 @@
         android:id="@+id/mySimpleXYPlot"
         android:layout_alignParentEnd="true"
         android:layout_below="@+id/exitButton" />
+
+
 
 </RelativeLayout>

@@ -4,4 +4,6 @@
     <string name="exit">Exit</string>
     <string name="use_your_cellphone_as_a_microphone">Use your cellphone as a microphone</string>
     <string name="finish">Stop</string>
+    <string name="ip_address">IP Address</string>
+    <string name="_255_255_255_255">255.255.255.255</string>
 </resources>
