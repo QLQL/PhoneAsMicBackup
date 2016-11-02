@@ -27,9 +27,12 @@ import java.io.InputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.nio.ShortBuffer;
+import java.nio.channels.DatagramChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Random;
@@ -61,6 +64,8 @@ public class MainActivity extends AppCompatActivity {
     private int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
     private int minBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
     private boolean status = false;
+    private boolean Server_aktiv = true;
+    private boolean playMode = false;
 
     AudioTrack player;
     private int playBufSize = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, audioFormat);
@@ -80,7 +85,8 @@ public class MainActivity extends AppCompatActivity {
 
         Button btn = (Button) findViewById(R.id.finishButton);
         btn.setEnabled(false);
-        //minBufSize += 2048;
+
+        //udpListening(); // started the udp listening thread
 
         mySimpleXYPlot = (com.androidplot.xy.XYPlot) findViewById(R.id.mySimpleXYPlot);
         textView = (TextView) findViewById(R.id.textView);
@@ -147,8 +153,6 @@ public class MainActivity extends AppCompatActivity {
 
         //testStreaming();
 
-
-
         status = true;
         startStreaming();
 
@@ -158,7 +162,7 @@ public class MainActivity extends AppCompatActivity {
         EditText EditTextField = (EditText) findViewById(R.id.ipAddress);
         EditTextField.setEnabled(false);
         Button finishButton = (Button) findViewById(R.id.finishButton);
-        finishButton.setEnabled(Boolean.TRUE);
+        finishButton.setEnabled(true);
 
         //mRecorder.stop();
         //mRecorder.release();
@@ -182,9 +186,9 @@ public class MainActivity extends AppCompatActivity {
 
 
         Button startButton = (Button) findViewById(R.id.startButton);
-        startButton.setEnabled(Boolean.TRUE);
+        startButton.setEnabled(true);
         EditText EditTextField = (EditText) findViewById(R.id.ipAddress);
-        EditTextField.setEnabled(Boolean.TRUE);
+        EditTextField.setEnabled(true);
         Button finishButton = (Button) findViewById(R.id.finishButton);
         finishButton.setEnabled(false);
     }
@@ -226,7 +230,7 @@ public class MainActivity extends AppCompatActivity {
                         // First get the IP address from the text field 10.64.8.78
                         handler.post(new Runnable(){
                                  public void run() {
-                                     //IP_ADDRESS = myEditText.getText().gtoString();
+                                     IP_ADDRESS = myEditText.getText().toString();
                                      // TODO add some grammar check to the IP_ADDRESS
                                      Log.w("UDP","IP address " + IP_ADDRESS);
                                  }
@@ -243,18 +247,20 @@ public class MainActivity extends AppCompatActivity {
                         }
                         Log.w("VS", "Recorder initialized");
 
-                        player = new AudioTrack(AudioManager.STREAM_MUSIC,
-                                sampleRate,
-                                AudioFormat.CHANNEL_OUT_MONO,
-                                AudioFormat.ENCODING_PCM_16BIT,
-                                playBufSize,
-                                AudioTrack.MODE_STREAM);
-                        player.setPlaybackRate(sampleRate);
-                        Log.w("VS", "Player initialized");
+                        if (playMode) {
+                            player = new AudioTrack(AudioManager.STREAM_MUSIC,
+                                    sampleRate,
+                                    AudioFormat.CHANNEL_OUT_MONO,
+                                    AudioFormat.ENCODING_PCM_16BIT,
+                                    playBufSize,
+                                    AudioTrack.MODE_STREAM);
+                            player.setPlaybackRate(sampleRate);
+                            Log.w("VS", "Player initialized");
+                            player.play();
+                        }
 
 
                         recorder.startRecording();
-                        player.play();
 
                         File f = new File(mFileName);
                         FileOutputStream dos = new FileOutputStream(mFileName);
@@ -288,7 +294,9 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-                            player.write(shortBuffer,0,read);
+                            if (playMode) {
+                                player.write(shortBuffer, 0, read);
+                            }
 
                             //short[] tmpp = new short[16];
                             //int read2 = recorder.read(tmpp, 0, tmpp.length);
@@ -412,8 +420,10 @@ public class MainActivity extends AppCompatActivity {
 
                         socket.close();
                         Log.d("VS","Socket released");
-                        player.release();
-                        Log.d("VS","Player released");
+                        if (playMode){
+                            player.release();
+                            Log.d("VS","Player released");
+                        }
                         recorder.stop();
                         recorder.release();
                         Log.d("VS","Recorder released");
@@ -518,6 +528,80 @@ public class MainActivity extends AppCompatActivity {
         testudpSendThread.start();
     }
 
+
+    public void udpListening()
+    {
+
+        final Handler handler = new Handler();
+        Thread udpListenStartThread = new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                //while(true){
+                // pause the programme for 1ooo milliseconds
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e1) {
+                    // TODO Auto-generated catch block
+                    e1.printStackTrace();
+                }
+
+                int port = 12345;
+                byte[] Msg = new byte[100]; //You must set the incoming message's maximum size
+                //DatagramPacket dp = new DatagramPacket(Msg, Msg.length);
+                //DatagramSocket ds = null;
+                try {
+                    InetAddress serverAddr = InetAddress.getByName(IP_ADDRESS);
+                    if (serverAddr.isReachable(1000))
+                        Log.w("Test", "host is reachable");
+                    else
+                        Log.w("Test", "host is not reachable");
+
+//                    DatagramChannel channel = DatagramChannel.open();
+//                    ds = channel.socket();
+//                    ds.setBroadcast(true);
+//                    DatagramPacket dp = new DatagramPacket(Msg, Msg.length,serverAddr, port);
+
+                    DatagramPacket dp = new DatagramPacket(Msg, Msg.length);
+                    DatagramSocket ds = new DatagramSocket(port);
+//                    ds.setBroadcast(true);
+
+                    ds.setSoTimeout(10000);
+                    while (Server_aktiv){
+                        try {
+                            ds.receive(dp);
+                            Log.d("Udp","Roger");
+                            final String text = new String(Msg, 0, dp.getLength());
+                            Log.d("Udp","message:" + text);
+                            Log.w("Test","Receive" + text);
+
+                            handler.post(new Runnable(){
+                                 public void run() {
+                                     textView.setText(text);
+                                 }
+                            });
+                        } catch (SocketTimeoutException e) {
+                            // resend
+                            Log.w("Test","Continue to listen");
+                            continue;
+                        }
+                    }
+                    ds.close();
+                } catch (SocketException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+
+            }
+
+        });
+
+        //start the listener
+        udpListenStartThread.start();
+    }
 
 
 }
