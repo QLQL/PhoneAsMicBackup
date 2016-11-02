@@ -144,31 +144,8 @@ public class MainActivity extends AppCompatActivity {
         mRecorder.start();
         */
 
-//        final byte[] DeleteBuffer = new byte[131072];
-//        byte byte1, byte2;
-//        for (int i=0;i<65536;i++) {
-//            short tmp = (short) (i-32768);
-//            byte1 = (byte) (tmp&0xFF); // the low byte
-//            byte2 = (byte) ((tmp>>8)&0xFF); // the high byte
-//            DeleteBuffer[i*2] = byte1;
-//            DeleteBuffer[i*2+1] = byte2;
-////            if (i%1000==0){
-////                Log.w("Test",Short.toString(tmp));
-////            }
-//        }
-//        FileOutputStream os = null;
-//        try {
-//            os = new FileOutputStream(new File(mFileNamedelete));
-//            os.write(DeleteBuffer);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }finally{
-//            try {
-//                os.close();
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//        }
+
+        //testStreaming();
 
 
 
@@ -456,7 +433,90 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    public void testStreaming()
+    {
 
+        final Handler handler = new Handler();
+        Thread testudpSendThread = new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                //while(true){
+                // pause the programme for 1ooo milliseconds
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e1) {
+                    // TODO Auto-generated catch block
+                    e1.printStackTrace();
+                }
+
+                final byte[] DeleteBuffer = new byte[131072];
+                byte byte1, byte2;
+                for (int i=0;i<65536;i++) {
+                    short tmp = (short) (i-32768);
+                    byte1 = (byte) (tmp&0xFF); // the low byte
+                    byte2 = (byte) ((tmp>>8)&0xFF); // the high byte
+                    DeleteBuffer[i*2] = byte1;
+                    DeleteBuffer[i*2+1] = byte2;
+//            if (i%1000==0){
+//                Log.w("Test",Short.toString(tmp));
+//            }
+                }
+
+                try {
+                    DatagramSocket socket = new DatagramSocket();
+                    InetAddress serverAddr = InetAddress.getByName(IP_ADDRESS);
+
+                    byte[] tmpp = new byte[2048];
+                    for(int i=0;i<64;i++) {
+                        //DatagramPacket packet = new DatagramPacket(DeleteBuffer, 131072, serverAddr, 50007);
+                        //new Random().nextBytes(tmpp);
+                        tmpp = Arrays.copyOfRange(DeleteBuffer,i*2048,(i+1)*2048);
+                        DatagramPacket packet = new DatagramPacket(tmpp, 2048, serverAddr, 50007);
+                        Log.w("Test","Packet generated");
+                        try {
+                            // send the UDP packet
+                            socket.send(packet);
+                            Log.w("UDP", "C: Packet sent!");
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            Log.w("UDP", "C: Sending just failed");
+                        }
+
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e1) {
+                            // TODO Auto-generated catch block
+                            e1.printStackTrace();
+                        }
+
+                    }
+                    socket.close();
+                }catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+                FileOutputStream os = null;
+                try {
+                    os = new FileOutputStream(new File(mFileNamedelete));
+                    os.write(DeleteBuffer);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }finally{
+                    try {
+                        os.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+            }
+
+        });
+
+        //start the streaming thread
+        testudpSendThread.start();
+    }
 
 
 
