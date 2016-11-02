@@ -1,7 +1,9 @@
 package com.qlgc.phoneasmic;
 import android.graphics.Color;
 import android.media.AudioFormat;
+import android.media.AudioManager;
 import android.media.AudioRecord;
+import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.os.Environment;
 import android.os.Handler;
@@ -13,12 +15,21 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.nio.ShortBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Random;
@@ -33,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
     private static String IP_ADDRESS = "131.227.95.234";//"10.64.8.78";
     //private MediaRecorder mRecorder = null;
     private static String mFileName = null;
+    private static String mFileNamedelete = null;
     //private static Boolean recordMode = Boolean.FALSE;
     private com.androidplot.xy.XYPlot mySimpleXYPlot;
 
@@ -47,12 +59,19 @@ public class MainActivity extends AppCompatActivity {
     //private int channelConfig = AudioFormat.CHANNEL_CONFIGURATION_MONO;
     //private int audioFormat = AudioFormat.ENCODING_PCM_8BIT;
     private int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
-    int minBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
+    private int minBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
     private boolean status = false;
+
+    AudioTrack player;
+    private int playBufSize = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, audioFormat);
+
+//    ShortBuffer mSamples; // the samples to play
+//    int mNumSamples; // number of samples to play
 
     public MainActivity() {
         mFileName = Environment.getExternalStorageDirectory().getAbsolutePath();
         mFileName += "/QL_Record";
+        mFileNamedelete = Environment.getExternalStorageDirectory().getAbsolutePath()+"/OnlyTest";
     }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -125,6 +144,34 @@ public class MainActivity extends AppCompatActivity {
         mRecorder.start();
         */
 
+//        final byte[] DeleteBuffer = new byte[131072];
+//        byte byte1, byte2;
+//        for (int i=0;i<65536;i++) {
+//            short tmp = (short) (i-32768);
+//            byte1 = (byte) (tmp&0xFF); // the low byte
+//            byte2 = (byte) ((tmp>>8)&0xFF); // the high byte
+//            DeleteBuffer[i*2] = byte1;
+//            DeleteBuffer[i*2+1] = byte2;
+////            if (i%1000==0){
+////                Log.w("Test",Short.toString(tmp));
+////            }
+//        }
+//        FileOutputStream os = null;
+//        try {
+//            os = new FileOutputStream(new File(mFileNamedelete));
+//            os.write(DeleteBuffer);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }finally{
+//            try {
+//                os.close();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
+
+
+
         status = true;
         startStreaming();
 
@@ -156,8 +203,6 @@ public class MainActivity extends AppCompatActivity {
 
         status = false;
 
-        recorder.release();
-        Log.d("VS","Recorder released");
 
         Button startButton = (Button) findViewById(R.id.startButton);
         startButton.setEnabled(Boolean.TRUE);
@@ -204,7 +249,7 @@ public class MainActivity extends AppCompatActivity {
                         // First get the IP address from the text field 10.64.8.78
                         handler.post(new Runnable(){
                                  public void run() {
-                                     //IP_ADDRESS = myEditText.getText().toString();
+                                     //IP_ADDRESS = myEditText.getText().gtoString();
                                      // TODO add some grammar check to the IP_ADDRESS
                                      Log.w("UDP","IP address " + IP_ADDRESS);
                                  }
@@ -214,13 +259,28 @@ public class MainActivity extends AppCompatActivity {
                         InetAddress serverAddr = InetAddress.getByName(IP_ADDRESS);
                         Log.w("UDP", "Connecting "+IP_ADDRESS);
 
-                        recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,sampleRate,channelConfig,audioFormat,minBufSize*4);
-                        Log.d("VS", "Recorder initialized");
+                        recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,sampleRate,channelConfig,audioFormat,minBufSize);
+                        if(recorder.getState() != AudioRecord.STATE_INITIALIZED){
+                            Log.w("VS", "Recorder cannot initialize");
+                            return;
+                        }
+                        Log.w("VS", "Recorder initialized");
+
+                        player = new AudioTrack(AudioManager.STREAM_MUSIC,
+                                sampleRate,
+                                AudioFormat.CHANNEL_OUT_MONO,
+                                AudioFormat.ENCODING_PCM_16BIT,
+                                playBufSize,
+                                AudioTrack.MODE_STREAM);
+                        player.setPlaybackRate(sampleRate);
+                        Log.w("VS", "Player initialized");
+
 
                         recorder.startRecording();
+                        player.play();
 
-                        // prepare data to be sent
-                        //byte[] sendData = new byte[80];
+                        File f = new File(mFileName);
+                        FileOutputStream dos = new FileOutputStream(mFileName);
 
                         while (status) {
                             //new Random().nextBytes(sendData);
@@ -237,12 +297,21 @@ public class MainActivity extends AppCompatActivity {
                             int read = recorder.read(shortBuffer, 0, shortBuffer.length);
                             byte byte1, byte2;
                             for (int i=0;i<shortBuffer.length;i++) {
-                                byte1 = (byte) shortBuffer[i]; // the low byte
-                                byte2 = (byte) ((shortBuffer[i]>>8)+byte1&0xFF);
+                                byte1 = (byte) (shortBuffer[i]&0xFF); // the low byte
+                                byte2 = (byte) ((shortBuffer[i]>>8)&0xFF); // the high byte
                                 buffer[i*2] = byte1;
                                 buffer[i*2+1] = byte2;
-                                // shortrecover = (short) ((byte2<<8)+byte1&0xFF)
+                                //short shortrecover = (short) ((byte2<<8)+byte1&0xFF);
+//                                dos.writeByte(shortBuffer[i] & 0xFF);
+//                                dos.writeByte((shortBuffer[i] >> 8) & 0xFF);
                             }
+
+                            if (read>10)
+                                dos.write(buffer);
+
+
+
+                            player.write(shortBuffer,0,read);
 
                             //short[] tmpp = new short[16];
                             //int read2 = recorder.read(tmpp, 0, tmpp.length);
@@ -265,7 +334,7 @@ public class MainActivity extends AppCompatActivity {
 
                             //byte[] tmp = packet.getData();
                             for(int k = 0; k < SampleN*step*EngeryBuffer.length; k+=step){
-                                EngeryBuffer[ii] += Math.abs(buffer[k]);
+                                EngeryBuffer[ii] += Math.abs(shortBuffer[k]);
                                 jj++;
                                 if(jj==SampleN){
                                     ii++;
@@ -316,35 +385,35 @@ public class MainActivity extends AppCompatActivity {
                                 }
                             });
 
-//                            handler.post(new Runnable(){
-//                                @Override
-//                                public void run() {
-//                                    //textView.setText("Sending data");
-//                                    // Create a couple arrays of y-values to plot:
-//                                    // Number[] series1Numbers = {1, 8, 5, 2, 7, 4};
-//                                    Number[] series1Numbers = buffer_plot;
-//                                    XYSeries series1 = new SimpleXYSeries(
-//                                            Arrays.asList(series1Numbers),          // SimpleXYSeries takes a List so turn our array into a List
-//                                            SimpleXYSeries.ArrayFormat.Y_VALS_ONLY, // Y_VALS_ONLY means use the element index as the x value
-//                                            "Series1");                             // Set the display title of the series
-//
-//                                    // Create a formatter to use for drawing a series using LineAndPointRenderer:
-//                                    LineAndPointFormatter series1Format = new LineAndPointFormatter(
-//                                            Color.rgb(0, 200, 0),                   // line color
-//                                            Color.rgb(0, 100, 0),                   // point color
-//                                            null,                                   // fill color (none)
-//                                            new PointLabelFormatter(Color.WHITE));                           // text color
-//
-//                                    mySimpleXYPlot.clear();
-//                                    // add a new series' to the xyplot:
-//                                    //Log.w("UDP", "Now update the plot");
-//                                    mySimpleXYPlot.addSeries(series1, series1Format);
-//                                    //Log.w("UDP", "Now update the plot2");
-//                                    mySimpleXYPlot.setRangeBoundaries(0,25000,BoundaryMode.FIXED);
-//                                    mySimpleXYPlot.redraw();
-//
-//                                }
-//                            });
+                            handler.post(new Runnable(){
+                                @Override
+                                public void run() {
+                                    //textView.setText("Sending data");
+                                    // Create a couple arrays of y-values to plot:
+                                    // Number[] series1Numbers = {1, 8, 5, 2, 7, 4};
+                                    Number[] series1Numbers = buffer_plot;
+                                    XYSeries series1 = new SimpleXYSeries(
+                                            Arrays.asList(series1Numbers),          // SimpleXYSeries takes a List so turn our array into a List
+                                            SimpleXYSeries.ArrayFormat.Y_VALS_ONLY, // Y_VALS_ONLY means use the element index as the x value
+                                            "Series1");                             // Set the display title of the series
+
+                                    // Create a formatter to use for drawing a series using LineAndPointRenderer:
+                                    LineAndPointFormatter series1Format = new LineAndPointFormatter(
+                                            Color.rgb(0, 200, 0),                   // line color
+                                            Color.rgb(0, 100, 0),                   // point color
+                                            null,                                   // fill color (none)
+                                            new PointLabelFormatter(Color.WHITE));                           // text color
+
+                                    mySimpleXYPlot.clear();
+                                    // add a new series' to the xyplot:
+                                    //Log.w("UDP", "Now update the plot");
+                                    mySimpleXYPlot.addSeries(series1, series1Format);
+                                    //Log.w("UDP", "Now update the plot2");
+                                    mySimpleXYPlot.setRangeBoundaries(0,25000,BoundaryMode.FIXED);
+                                    mySimpleXYPlot.redraw();
+
+                                }
+                            });
 
 
                             try {
@@ -356,7 +425,21 @@ public class MainActivity extends AppCompatActivity {
 
                         }
 
+                        try{
+                            dos.flush();
+                            dos.close();
+                            Log.d("VS","IO released");
+                        } catch (IOException e){
+                            e.printStackTrace();
+                        }
+
                         socket.close();
+                        Log.d("VS","Socket released");
+                        player.release();
+                        Log.d("VS","Player released");
+                        recorder.stop();
+                        recorder.release();
+                        Log.d("VS","Recorder released");
 
                     } catch (Exception e) {
                         Log.w("UDP", "C: Error", e);
@@ -371,6 +454,10 @@ public class MainActivity extends AppCompatActivity {
         //start the streaming thread
         udpSendThread.start();
     }
+
+
+
+
 
 
 }
