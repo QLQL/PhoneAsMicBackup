@@ -44,7 +44,7 @@ import com.androidplot.xy.*;
 public class MainActivity extends AppCompatActivity {
 
     private static final String LOG_TAG = "AudioRecordTest";
-    private static String IP_ADDRESS = "131.227.95.234";//"10.64.8.78";
+    private static String IP_ADDRESS = "10.33.17.190";//"131.227.95.234";//"10.64.8.78";
     //private MediaRecorder mRecorder = null;
     private static String mFileName = null;
     private static String mFileNamedelete = null;
@@ -57,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView textView;
     private EditText myEditText;
 
-    private int sampleRate = 44100;//44100;
+    private int sampleRate = 48000;//44100;
     private int channelConfig = AudioFormat.CHANNEL_IN_MONO;
     //private int channelConfig = AudioFormat.CHANNEL_CONFIGURATION_MONO;
     //private int audioFormat = AudioFormat.ENCODING_PCM_8BIT;
@@ -66,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean status = false;
     private boolean Server_aktiv = true;
     private boolean playMode = false;
+    private boolean saveMode = false;
 
     AudioTrack player;
     private int playBufSize = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, audioFormat);
@@ -230,7 +231,7 @@ public class MainActivity extends AppCompatActivity {
                         // First get the IP address from the text field 10.64.8.78
                         handler.post(new Runnable(){
                                  public void run() {
-                                     IP_ADDRESS = myEditText.getText().toString();
+                                     // IP_ADDRESS = myEditText.getText().toString();
                                      // TODO add some grammar check to the IP_ADDRESS
                                      Log.w("UDP","IP address " + IP_ADDRESS);
                                  }
@@ -265,6 +266,7 @@ public class MainActivity extends AppCompatActivity {
                         File f = new File(mFileName);
                         FileOutputStream dos = new FileOutputStream(mFileName);
 
+
                         while (status) {
                             //new Random().nextBytes(sendData);
 
@@ -289,8 +291,10 @@ public class MainActivity extends AppCompatActivity {
 //                                dos.writeByte((shortBuffer[i] >> 8) & 0xFF);
                             }
 
-                            if (read>10)
-                                dos.write(buffer);
+                            if (saveMode) {
+                                if (read > 10)
+                                    dos.write(buffer);
+                            }
 
 
 
@@ -410,11 +414,12 @@ public class MainActivity extends AppCompatActivity {
 
                         }
 
-                        try{
+
+                        try {
                             dos.flush();
                             dos.close();
-                            Log.d("VS","IO released");
-                        } catch (IOException e){
+                            Log.d("VS", "IO released");
+                        } catch (IOException e) {
                             e.printStackTrace();
                         }
 
