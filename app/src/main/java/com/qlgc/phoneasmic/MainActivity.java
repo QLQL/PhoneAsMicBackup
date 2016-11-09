@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
@@ -44,7 +45,7 @@ import com.androidplot.xy.*;
 public class MainActivity extends AppCompatActivity {
 
     private static final String LOG_TAG = "AudioRecordTest";
-    private static String IP_ADDRESS = "10.33.17.190";//"131.227.95.234";//"10.64.8.78";
+    private static String IP_ADDRESS = "192.168.0.2";//"10.33.17.190";//"131.227.95.234";//"10.64.8.78";
     //private MediaRecorder mRecorder = null;
     private static String mFileName = null;
     private static String mFileNamedelete = null;
@@ -65,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
     private int minBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
     private boolean status = false;
     private boolean Server_aktiv = true;
-    private boolean playMode = false;
+    private boolean playMode = true;
     private boolean saveMode = false;
 
     AudioTrack player;
@@ -87,7 +88,7 @@ public class MainActivity extends AppCompatActivity {
         Button btn = (Button) findViewById(R.id.finishButton);
         btn.setEnabled(false);
 
-        //udpListening(); // started the udp listening thread
+        udpListening(); // started the udp listening thread
 
         mySimpleXYPlot = (com.androidplot.xy.XYPlot) findViewById(R.id.mySimpleXYPlot);
         textView = (TextView) findViewById(R.id.textView);
@@ -542,7 +543,6 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void run() {
-                //while(true){
                 // pause the programme for 1ooo milliseconds
                 try {
                     Thread.sleep(1000);
@@ -552,49 +552,53 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 int port = 12345;
-                byte[] Msg = new byte[100]; //You must set the incoming message's maximum size
-                //DatagramPacket dp = new DatagramPacket(Msg, Msg.length);
-                //DatagramSocket ds = null;
+                byte[] message = new byte[8000]; //You must set the incoming message's maximum size
+
                 try {
+                    int Frame = 0;
                     InetAddress serverAddr = InetAddress.getByName(IP_ADDRESS);
                     if (serverAddr.isReachable(1000))
                         Log.w("Test", "host is reachable");
                     else
                         Log.w("Test", "host is not reachable");
 
-//                    DatagramChannel channel = DatagramChannel.open();
-//                    ds = channel.socket();
-//                    ds.setBroadcast(true);
-//                    DatagramPacket dp = new DatagramPacket(Msg, Msg.length,serverAddr, port);
 
-                    DatagramPacket dp = new DatagramPacket(Msg, Msg.length);
-                    DatagramSocket ds = new DatagramSocket(port);
-//                    ds.setBroadcast(true);
+                    // It is very important that the socket need to be bind, otherwise, it cannot receive any packet
+                    DatagramChannel channel = DatagramChannel.open();
+                    DatagramSocket ds = channel.socket();// <-- create an unbound socket first
+                    ds.setReuseAddress(true);
+                    ds.bind(new InetSocketAddress(port)); // <-- now bind it
+                    ds.setSoTimeout(2000);
 
-                    ds.setSoTimeout(10000);
+                    DatagramPacket dp = new DatagramPacket(message, message.length);
                     while (Server_aktiv){
                         try {
+                            Log.w("UDP", "Try to receive data");
                             ds.receive(dp);
-                            Log.d("Udp","Roger");
-                            final String text = new String(Msg, 0, dp.getLength());
-                            Log.d("Udp","message:" + text);
-                            Log.w("Test","Receive" + text);
+                            //Log.d("Udp","Roger, received");
+                            Frame++;
+                            Log.d("Udp",String.valueOf(Frame)+" received "+String.valueOf(dp.getLength())+" data");
 
+
+                            // show the frame number and the length in the screen
+                            final int LL = dp.getLength();
+                            final int FFrame = Frame;
                             handler.post(new Runnable(){
-                                 public void run() {
-                                     textView.setText(text);
-                                 }
+                                public void run() {
+                                    textView.setText(String.valueOf(FFrame)+"-----"+String.valueOf(LL));
+                                }
                             });
+
                         } catch (SocketTimeoutException e) {
                             // resend
                             Log.w("Test","Continue to listen");
                             continue;
+                        } catch (IOException e) {
+                            Log.e(" UDP ", "error");
+                            e.printStackTrace();
                         }
                     }
                     ds.close();
-                } catch (SocketException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
                 } catch (IOException e) {
                     // TODO Auto-generated catch block
                     e.printStackTrace();
@@ -607,6 +611,7 @@ public class MainActivity extends AppCompatActivity {
         //start the listener
         udpListenStartThread.start();
     }
+
 
 
 }
